@@ -172,11 +172,11 @@ class DLSS5FrameGenApp(ctk.CTk):
                      text_color=TEXT).grid(row=0, column=0, sticky="w", padx=22, pady=(20, 8))
         row1 = ctk.CTkFrame(panel, fg_color=CARD_2, corner_radius=RAD_MD)
         row1.grid(row=1, column=0, sticky="ew", padx=18, pady=6)
-        ctk.CTkLabel(row1, text="🧠  DLSS 5 神经渲染 (nvngx_dlssnr.dll)", font=ctk.CTkFont(size=13, weight="bold"),
+        ctk.CTkLabel(row1, text="🧠  DLSS 5 神经渲染", font=ctk.CTkFont(size=13, weight="bold"),
                      text_color=TEXT).grid(row=0, column=0, sticky="w", padx=16, pady=(14, 0))
         self.sw_dlss5 = ctk.CTkSwitch(row1, text="", variable=self.enable_dlss5, progress_color=ACCENT)
         self.sw_dlss5.grid(row=0, column=1, sticky="e", padx=16, pady=(14, 0))
-        ctk.CTkLabel(row1, text="内置 NVIDIA 神经渲染 DLL，由 OptiScaler 注入游戏进程，无需联网下载。",
+        ctk.CTkLabel(row1, text="由 OptiScaler 自动调用游戏自带 DLSS 组件，为不支持的游戏注入神经画质增强。",
                      font=ctk.CTkFont(size=11), text_color=DIM, justify="left",
                      wraplength=600).grid(row=1, column=0, columnspan=2, sticky="w", padx=16, pady=(2, 14))
         row2 = ctk.CTkFrame(panel, fg_color=CARD_2, corner_radius=RAD_MD)
@@ -530,6 +530,7 @@ class DLSS5FrameGenApp(ctk.CTk):
             self.after(0, lambda: self.log(f"✗ 解压失败: {e}", "error"))
             self.after(0, self._on_install_failed); return
         time.sleep(0.3)
+
         self.after(0, lambda: self.log("备份游戏目录原始文件…", "step"))
         backup_dir = os.path.join(game_dir, ".dlss5_backup")
         os.makedirs(backup_dir, exist_ok=True)
@@ -539,44 +540,46 @@ class DLSS5FrameGenApp(ctk.CTk):
                 shutil.copy2(src, os.path.join(backup_dir, fname))
                 self.after(0, lambda f=fname: self.log(f"  备份: {f}", "info"))
         time.sleep(0.2)
-        self.after(0, lambda: self.log("部署 OptiScaler 注入器 dxgi.dll…", "step"))
-        found = False
+
+        self.after(0, lambda: self.log("部署 OptiScaler 注入器及组件…", "step"))
+        deployed = 0
         for root, dirs, files in os.walk(extract_dir):
             for f in files:
-                if f.lower() == "dxgi.dll":
-                    shutil.copy2(os.path.join(root, f), os.path.join(game_dir, "dxgi.dll"))
-                    found = True; break
-            if found: break
-        if not found:
-            self.after(0, lambda: self.log("✗ 未在 OptiScaler 包中找到 dxgi.dll", "error"))
-            self.after(0, self._on_install_failed); return
-        self.after(0, lambda: self.log("✓ dxgi.dll 已部署", "success"))
+                src = os.path.join(root, f)
+                rel = os.path.relpath(src, extract_dir)
+                if f.lower().startswith("readme") or f.lower().startswith("license"):
+                    continue
+                dst = os.path.join(game_dir, rel)
+                os.makedirs(os.path.dirname(dst), exist_ok=True)
+                if f.lower() == "optiscaler.dll":
+                    shutil.copy2(src, os.path.join(game_dir, "dxgi.dll"))
+                    self.after(0, lambda: self.log("  → OptiScaler.dll → dxgi.dll (注入器)", "info"))
+                else:
+                    shutil.copy2(src, dst)
+                    self.after(0, lambda r=rel: self.log(f"  → {r}", "info"))
+                deployed += 1
+        if deployed == 0:
+            self.after(0, lambda: self.log("✗ 解压后没有可用文件", "error"))
+            self.after(0, self._on_install_failed)
+            return
+        self.after(0, lambda: self.log(f"✓ 已部署 {deployed} 个文件", "success"))
+
         if self.enable_dlss5.get():
-            self.after(0, lambda: self.log("部署 nvngx_dlssnr.dll (DLSS 5 神经渲染)…", "step"))
-            found_nr = False
-            for root, dirs, files in os.walk(extract_dir):
-                for f in files:
-                    if f.lower() == "nvngx_dlssnr.dll":
-                        shutil.copy2(os.path.join(root, f), os.path.join(game_dir, "nvngx_dlssnr.dll"))
-                        found_nr = True; break
-                if found_nr: break
-            if found_nr:
-                self.after(0, lambda: self.log("✓ nvngx_dlssnr.dll 已部署", "success"))
-            else:
-                self.after(0, lambda: self.log("⚠ 包中未找到 nvngx_dlssnr.dll，使用游戏自带版本", "warn"))
+            self.after(0, lambda: self.log("DLSS 5 神经渲染由 OptiScaler 自动调用游戏自带 DLSS 组件", "info"))
         time.sleep(0.2)
+
         self.after(0, lambda: self.log(f"写入 OptiScaler.ini (帧生成 {mult}X)…", "step"))
         ini_path = os.path.join(game_dir, "OptiScaler.ini")
         ini_content = f"""[OptiScaler]
 ; DLSS 5 + Frame Gen Tool 自动生成
 EnableOverlays=false
 FrameGenerationMode={mult}
-EnableDLSSNR={'true' if self.enable_dlss5.get() else 'false'}
 TargetExe={exe_name}
 """
         with open(ini_path, "w", encoding="utf-8") as f:
             f.write(ini_content)
         self.after(0, lambda: self.log("✓ OptiScaler.ini 已写入", "success"))
+
         shutil.rmtree(tmp, ignore_errors=True)
         self.after(0, self._on_install_done)
 
@@ -606,12 +609,23 @@ TargetExe={exe_name}
             messagebox.showinfo("无备份", "该游戏目录没有找到备份，无需还原。"); return
         if not messagebox.askyesno("确认还原", "将从备份恢复游戏目录的原始文件，是否继续？"): return
         self.log("开始还原文件…", "step")
-        restored = 0
-        for fname in ["dxgi.dll", "OptiScaler.ini", "nvngx_dlssnr.dll"]:
+        deployed_files = [
+            "dxgi.dll", "OptiScaler.ini", "fakenvapi.dll", "fakenvapi.ini",
+            "amd_fidelityfx_dx12.dll", "amd_fidelityfx_framegeneration_dx12.dll",
+            "amd_fidelityfx_upscaler_dx12.dll", "amd_fidelityfx_vk.dll",
+            "dlssg_to_fsr3_amd_is_better.dll",
+            "libxell.dll", "libxess.dll", "libxess_dx11.dll", "libxess_fg.dll",
+        ]
+        for fname in deployed_files:
             p = os.path.join(game_dir, fname)
             if os.path.exists(p):
                 os.remove(p)
-                self.log(f"  已删除部署文件: {fname}", "info")
+                self.log(f"  已删除: {fname}", "info")
+        d3d12_dir = os.path.join(game_dir, "D3D12_Optiscaler")
+        if os.path.isdir(d3d12_dir):
+            shutil.rmtree(d3d12_dir)
+            self.log("  已删除: D3D12_Optiscaler/", "info")
+        restored = 0
         for f in os.listdir(backup_dir):
             shutil.copy2(os.path.join(backup_dir, f), os.path.join(game_dir, f))
             restored += 1
