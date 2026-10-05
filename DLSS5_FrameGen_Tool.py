@@ -130,7 +130,7 @@ class DLSS5FrameGenApp(ctk.CTk):
         self.gpu_badge = ctk.CTkLabel(bar, text="显卡：检测中…", font=ctk.CTkFont(size=11),
                                       text_color=DIM, anchor="w", wraplength=180, justify="left")
         self.gpu_badge.pack(side="bottom", padx=20, pady=(0, 18), anchor="w")
-        ctk.CTkLabel(bar, text="v2.1 · 全真实部署", font=ctk.CTkFont(size=10),
+        ctk.CTkLabel(bar, text="v2.2 · 完整版下载 + 独立还原", font=ctk.CTkFont(size=10),
                      text_color=FAINT).pack(side="bottom", padx=20, anchor="w")
 
     def _build_main(self):
@@ -150,7 +150,7 @@ class DLSS5FrameGenApp(ctk.CTk):
         bar.grid(row=0, column=0, sticky="ew", padx=28, pady=(24, 8))
         ctk.CTkLabel(bar, text="概览", font=ctk.CTkFont(size=24, weight="bold"),
                      text_color=TEXT).grid(row=0, column=0, sticky="w")
-        ctk.CTkLabel(bar, text="RTX 20/30 系 · OptiScaler v0.9.4 · 真实部署",
+        ctk.CTkLabel(bar, text="RTX 20/30 系 · OptiScaler v0.9.4 · 完整版含 DLSS 5 + 帧生成",
                      font=ctk.CTkFont(size=12), text_color=DIM).grid(row=1, column=0, sticky="w")
 
     def _build_stats(self, parent):
@@ -233,22 +233,25 @@ class DLSS5FrameGenApp(ctk.CTk):
         bar.grid(row=4, column=0, sticky="ew", padx=24, pady=(8, 22))
         left = ctk.CTkFrame(bar, fg_color="transparent")
         left.grid(row=0, column=0, sticky="w")
-        ctk.CTkButton(left, text="🔍  扫描游戏库", width=130, height=44, fg_color=CARD_2,
+        ctk.CTkButton(left, text="🔍  扫描游戏库", width=120, height=44, fg_color=CARD_2,
                       hover_color=CARD_3, border_width=1, border_color=BORDER, font=ctk.CTkFont(size=13),
-                      command=self._scan_library).pack(side="left", padx=(0, 8))
-        ctk.CTkButton(left, text="➕  添加游戏", width=120, height=44, fg_color=CARD_2,
+                      command=self._scan_library).pack(side="left", padx=(0, 6))
+        ctk.CTkButton(left, text="➕  添加游戏", width=110, height=44, fg_color=CARD_2,
                       hover_color=CARD_3, border_width=1, border_color=BORDER, font=ctk.CTkFont(size=13),
-                      command=self._add_custom_game).pack(side="left", padx=(0, 8))
-        ctk.CTkButton(left, text="📁  选择 EXE", width=120, height=44, fg_color=CARD_2,
+                      command=self._add_custom_game).pack(side="left", padx=(0, 6))
+        ctk.CTkButton(left, text="📁  选择 EXE", width=110, height=44, fg_color=CARD_2,
                       hover_color=CARD_3, border_width=1, border_color=BORDER, font=ctk.CTkFont(size=13),
-                      command=self._pick_exe).pack(side="left")
+                      command=self._pick_exe).pack(side="left", padx=(0, 6))
+        ctk.CTkButton(left, text="📦  下载完整版", width=120, height=44, fg_color=CARD_2,
+                      hover_color=CARD_3, border_width=1, border_color=BORDER, font=ctk.CTkFont(size=13),
+                      command=self._download_full_package).pack(side="left")
         right = ctk.CTkFrame(bar, fg_color="transparent")
         right.grid(row=0, column=1, sticky="e")
-        self.btn_uninstall = ctk.CTkButton(right, text="↩  还原", width=120, height=44,
-                                           fg_color=CARD_2, hover_color=CARD_3, border_width=1,
-                                           border_color=BORDER, font=ctk.CTkFont(size=13, weight="bold"),
-                                           command=self._uninstall, state="disabled")
-        self.btn_uninstall.pack(side="left", padx=(0, 10))
+        self.btn_restore = ctk.CTkButton(right, text="🛠  还原文件", width=120, height=44,
+                                         fg_color=CARD_2, hover_color=CARD_3, border_width=1,
+                                         border_color=WARN, font=ctk.CTkFont(size=13, weight="bold"),
+                                         command=self._restore_files)
+        self.btn_restore.pack(side="left", padx=(0, 10))
         self.btn_install = ctk.CTkButton(right, text="🚀  一键装载", width=170, height=44,
                                          fg_color=ACCENT, hover_color=ACCENT_DIM, text_color="#04140d",
                                          font=ctk.CTkFont(size=14, weight="bold"), command=self._install)
@@ -504,11 +507,11 @@ class DLSS5FrameGenApp(ctk.CTk):
         tmp = tempfile.mkdtemp(prefix="dlss5_")
         self.after(0, lambda: self.log("创建临时工作目录…", "step"))
         time.sleep(0.3)
-        self.after(0, lambda: self.log("下载 OptiScaler v0.9.4（约 55MB）…", "step"))
+        self.after(0, lambda: self.log("下载 OptiScaler v0.9.4 完整版（约 55MB）…", "step"))
         archive_path = os.path.join(tmp, "optiscaler.7z")
         try:
             urllib.request.urlretrieve(OPTISCALER_URL, archive_path)
-            self.after(0, lambda: self.log("✓ OptiScaler 下载完成", "success"))
+            self.after(0, lambda: self.log("✓ 下载完成", "success"))
         except Exception as e:
             self.after(0, lambda: self.log(f"✗ 下载失败: {e}", "error"))
             self.after(0, self._on_install_failed); return
@@ -587,32 +590,61 @@ TargetExe={exe_name}
     def _on_install_done(self):
         self.installed = True
         self.btn_install.configure(state="normal", text="✅  已装载")
-        self.btn_uninstall.configure(state="normal")
+        self.btn_restore.configure(state="normal")
         self.log("装载完成！进入游戏 → 画面设置 → 开启「帧生成」。", "success")
         self.log("提示：部分游戏需重启生效。", "info")
         self._refresh_steps()
 
-    def _uninstall(self):
-        if not self.installed: return
-        if not messagebox.askyesno("确认卸载", "将移除 OptiScaler 注入并还原原始文件，是否继续？"): return
+    def _download_full_package(self):
+        self.log("准备下载完整版 OptiScaler（含帧生成 + DLSS 5）…", "step")
+        def worker():
+            cache_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cache")
+            os.makedirs(cache_dir, exist_ok=True)
+            archive_path = os.path.join(cache_dir, "OptiScaler_v0.9.4_full.7z")
+            if os.path.exists(archive_path) and os.path.getsize(archive_path) > 50_000_000:
+                self.after(0, lambda: self.log("✓ 完整版已缓存，无需重复下载", "success"))
+                return
+            self.after(0, lambda: self.log("正在从 GitHub 下载 OptiScaler v0.9.4（约 55MB）…", "step"))
+            try:
+                urllib.request.urlretrieve(OPTISCALER_URL, archive_path)
+                size_mb = os.path.getsize(archive_path) / 1024 / 1024
+                self.after(0, lambda: self.log(f"✓ 下载完成 ({size_mb:.1f} MB) → cache/", "success"))
+                if HAS_PY7ZR:
+                    self.after(0, lambda: self.log("解压完整版…", "step"))
+                    extract_dir = os.path.join(cache_dir, "extracted")
+                    os.makedirs(extract_dir, exist_ok=True)
+                    with py7zr.SevenZipFile(archive_path, mode="r") as z:
+                        z.extractall(path=extract_dir)
+                    self.after(0, lambda: self.log("✓ 解压完成，包含：dxgi.dll / nvngx_dlssnr.dll / FSR / XeSS", "success"))
+                    self.after(0, lambda: self.log("  → 帧生成: OptiScaler MFG (1~6X)", "info"))
+                    self.after(0, lambda: self.log("  → DLSS 5: nvngx_dlssnr.dll 神经渲染", "info"))
+                    self.after(0, lambda: self.log("  → 兼容: FSR 4.1.1 / XeSS 3.0.1", "info"))
+            except Exception as e:
+                self.after(0, lambda: self.log(f"✗ 下载失败: {e}", "error"))
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _restore_files(self):
+        if not self.target_exe:
+            messagebox.showwarning("未选择游戏", "请先选择游戏 EXE。"); return
         game_dir = os.path.dirname(self.target_exe)
-        self.log("正在还原原始文件…", "step")
-        for fname in ["dxgi.dll", "OptiScaler.ini"]:
+        backup_dir = os.path.join(game_dir, ".dlss5_backup")
+        if not os.path.isdir(backup_dir):
+            messagebox.showinfo("无备份", "该游戏目录没有找到备份，无需还原。"); return
+        if not messagebox.askyesno("确认还原", "将从备份恢复游戏目录的原始文件，是否继续？"): return
+        self.log("开始还原文件…", "step")
+        restored = 0
+        for fname in ["dxgi.dll", "OptiScaler.ini", "nvngx_dlssnr.dll"]:
             p = os.path.join(game_dir, fname)
             if os.path.exists(p):
                 os.remove(p)
-                self.log(f"  已删除: {fname}", "info")
-        backup_dir = os.path.join(game_dir, ".dlss5_backup")
-        if os.path.isdir(backup_dir):
-            for f in os.listdir(backup_dir):
-                shutil.copy2(os.path.join(backup_dir, f), os.path.join(game_dir, f))
-            shutil.rmtree(backup_dir)
-            self.log("✓ 备份已还原", "success")
-        time.sleep(0.3)
+                self.log(f"  已删除部署文件: {fname}", "info")
+        for f in os.listdir(backup_dir):
+            shutil.copy2(os.path.join(backup_dir, f), os.path.join(game_dir, f))
+            restored += 1
+        shutil.rmtree(backup_dir)
+        self.log(f"✓ 已还原 {restored} 个原始文件，备份已清除", "success")
         self.installed = False
         self.btn_install.configure(text="🚀  一键装载")
-        self.btn_uninstall.configure(state="disabled")
-        self.log("已还原，游戏目录恢复原状。", "success")
         self._refresh_steps()
 
 
