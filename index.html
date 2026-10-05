@@ -17,12 +17,16 @@
     line-height:1.6;overflow-x:hidden}
   a{color:inherit;text-decoration:none}
   .wrap{max-width:1100px;margin:0 auto;padding:0 24px}
+
+  /* nav */
   nav{display:flex;justify-content:space-between;align-items:center;padding:20px 0}
   .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px}
   .brand .bolt{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#00e5a0,#38bdf8);
     display:grid;place-items:center;color:#04140d;font-size:18px}
   .nav-links{display:flex;gap:28px;font-size:14px;color:var(--dim)}
   .nav-links a:hover{color:var(--text)}
+
+  /* hero */
   header{padding:80px 0 40px;text-align:center;position:relative}
   .badge{display:inline-block;padding:6px 14px;border:1px solid var(--border);border-radius:999px;
     font-size:12px;color:var(--accent);margin-bottom:24px;background:rgba(0,229,160,.06)}
@@ -35,9 +39,13 @@
   .cta:hover{background:var(--accent-d);transform:translateY(-2px)}
   .cta .dl{font-size:18px}
   .meta{margin-top:14px;font-size:12px;color:var(--faint)}
+
+  /* shot */
   .shot{margin:50px auto 0;border:1px solid var(--border);border-radius:20px;overflow:hidden;
     box-shadow:0 30px 80px rgba(0,0,0,.5);background:var(--bg2)}
   .shot img{width:100%;display:block}
+
+  /* features */
   section{padding:80px 0}
   .sec-title{text-align:center;font-size:32px;font-weight:800;margin-bottom:8px}
   .sec-sub{text-align:center;color:var(--dim);margin-bottom:48px}
@@ -47,16 +55,22 @@
   .ficon{width:46px;height:46px;border-radius:12px;background:var(--card2);display:grid;place-items:center;margin-bottom:16px;color:var(--accent)}
   .fcard h3{font-size:17px;margin-bottom:8px}
   .fcard p{font-size:14px;color:var(--dim)}
+
+  /* spec row */
   .specs{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:40px}
   .spec{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;text-align:center}
   .spec .num{font-size:26px;font-weight:800;color:var(--accent)}
   .spec .lab{font-size:12px;color:var(--dim);margin-top:4px}
+
+  /* download band */
   .dlband{background:var(--bg2);border:1px solid var(--border);border-radius:24px;padding:50px;text-align:center;
     background-image:radial-gradient(circle at 50% 0%,rgba(0,229,160,.08),transparent 60%)}
   .reqs{display:inline-block;text-align:left;margin:24px auto 0;font-size:14px;color:var(--dim)}
   .reqs li{margin:6px 0;list-style:none}
   .reqs li::before{content:"✓";color:var(--accent);margin-right:8px;font-weight:bold}
+
   footer{padding:40px 0;text-align:center;color:var(--faint);font-size:13px;border-top:1px solid var(--border);margin-top:40px}
+
   @media(max-width:800px){
     .grid{grid-template-columns:1fr}
     .specs{grid-template-columns:repeat(2,1fr)}
@@ -67,6 +81,7 @@
 </head>
 <body>
 <div class="wrap">
+
   <nav>
     <div class="brand"><span class="bolt">⚡</span> DLSS 5 Tool</div>
     <div class="nav-links">
@@ -75,18 +90,21 @@
       <a href="#req">要求</a>
     </div>
   </nav>
+
   <header>
-    <div class="badge">v2.0 · 暗色重设计</div>
+    <div class="badge">v2.3 · 内置 OptiScaler 完整包</div>
     <h1>DLSS 5 + 帧生成<br><span class="grad">一键装载工具</span></h1>
     <p class="sub">为 RTX 20 / 30 系显卡注入 DLSS 5 神经渲染与多帧生成。检测显卡、选游戏、反作弊自检，一键完成。</p>
-    <a class="cta" href="DLSS5_FrameGen_Tool_v2.0.exe" download>
-      <span class="dl">⬇</span> 下载 Windows 版
+    <a class="cta" href="https://github.com/DANK1NG-zzlt/dlss5-framegen-tool/archive/refs/heads/main.zip">
+      <span class="dl">⬇</span> 下载源码包（含一键打包脚本）
     </a>
-    <div class="meta">约 25 MB · Windows 10/11 · 免安装</div>
+    <div class="meta">解压后双击 build_exe.bat 自动打包成 exe · Windows 10/11</div>
+
     <div class="shot">
       <img src="assets/app.png" alt="DLSS 5 工具界面预览">
     </div>
   </header>
+
   <section id="features">
     <h2 class="sec-title">为什么用它</h2>
     <p class="sec-sub">三步完成注入，全程可视化日志</p>
@@ -107,6 +125,7 @@
         <p>自动检测游戏目录中的反作弊组件，命中即拦截，避免联机封号风险。</p>
       </div>
     </div>
+
     <div class="specs">
       <div class="spec"><div class="num">2</div><div class="lab">受支持显卡代</div></div>
       <div class="spec"><div class="num">6X</div><div class="lab">最高插帧倍率</div></div>
@@ -114,12 +133,13 @@
       <div class="spec"><div class="num">0</div><div class="lab">需要安装步骤</div></div>
     </div>
   </section>
+
   <section id="download">
     <div class="dlband">
       <h2 class="sec-title">开始使用</h2>
-      <p class="sec-sub">下载后解压，双击运行即可</p>
-      <a class="cta" href="DLSS5_FrameGen_Tool_v2.0.exe" download>
-        <span class="dl">⬇</span> DLSS5_FrameGen_Tool_v2.0.exe
+      <p class="sec-sub">下载源码包 → 解压 → 双击 build_exe.bat，自动打包成 exe</p>
+      <a class="cta" href="https://github.com/DANK1NG-zzlt/dlss5-framegen-tool/archive/refs/heads/main.zip">
+        <span class="dl">⬇</span> 下载源码包（含一键打包脚本）
       </a>
       <ul class="reqs" id="req">
         <li>Windows 10 / 11 (64 位)</li>
@@ -129,6 +149,7 @@
       </ul>
     </div>
   </section>
+
   <footer>
     DLSS 5 Frame Gen Tool · 仅供学习交流 · 不官方、与 NVIDIA 无关
   </footer>
