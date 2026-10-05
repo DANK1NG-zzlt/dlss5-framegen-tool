@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DLSS 5 + 帧生成 · 一键装载工具</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+<style>
+  :root{
+    --bg:#080b11; --bg2:#0c1119; --card:#121823; --card2:#17202d;
+    --border:#223041; --accent:#00e5a0; --accent-d:#0bbf86; --blue:#38bdf8;
+    --text:#eaf0f8; --dim:#8494a7; --faint:#5b6b80;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    line-height:1.6;overflow-x:hidden}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1100px;margin:0 auto;padding:0 24px}
+  nav{display:flex;justify-content:space-between;align-items:center;padding:20px 0}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px}
+  .brand .bolt{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#00e5a0,#38bdf8);
+    display:grid;place-items:center;color:#04140d;font-size:18px}
+  .nav-links{display:flex;gap:28px;font-size:14px;color:var(--dim)}
+  .nav-links a:hover{color:var(--text)}
+  header{padding:80px 0 40px;text-align:center;position:relative}
+  .badge{display:inline-block;padding:6px 14px;border:1px solid var(--border);border-radius:999px;
+    font-size:12px;color:var(--accent);margin-bottom:24px;background:rgba(0,229,160,.06)}
+  h1{font-size:clamp(32,6vw,56px);line-height:1.15;font-weight:800;letter-spacing:-.5px}
+  h1 .grad{background:linear-gradient(135deg,#00e5a0,#38bdf8);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{max-width:560px;margin:20px auto 36px;color:var(--dim);font-size:17px}
+  .cta{display:inline-flex;align-items:center;gap:10px;background:var(--accent);color:#04140d;
+    padding:16px 32px;border-radius:14px;font-weight:700;font-size:16px;transition:.2s;
+    box-shadow:0 8px 30px rgba(0,229,160,.25)}
+  .cta:hover{background:var(--accent-d);transform:translateY(-2px)}
+  .cta .dl{font-size:18px}
+  .meta{margin-top:14px;font-size:12px;color:var(--faint)}
+  .shot{margin:50px auto 0;border:1px solid var(--border);border-radius:20px;overflow:hidden;
+    box-shadow:0 30px 80px rgba(0,0,0,.5);background:var(--bg2)}
+  .shot img{width:100%;display:block}
+  section{padding:80px 0}
+  .sec-title{text-align:center;font-size:32px;font-weight:800;margin-bottom:8px}
+  .sec-sub{text-align:center;color:var(--dim);margin-bottom:48px}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+  .fcard{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px;transition:.2s}
+  .fcard:hover{border-color:var(--accent);transform:translateY(-3px)}
+  .ficon{width:46px;height:46px;border-radius:12px;background:var(--card2);display:grid;place-items:center;margin-bottom:16px;color:var(--accent)}
+  .fcard h3{font-size:17px;margin-bottom:8px}
+  .fcard p{font-size:14px;color:var(--dim)}
+  .specs{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:40px}
+  .spec{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;text-align:center}
+  .spec .num{font-size:26px;font-weight:800;color:var(--accent)}
+  .spec .lab{font-size:12px;color:var(--dim);margin-top:4px}
+  .dlband{background:var(--bg2);border:1px solid var(--border);border-radius:24px;padding:50px;text-align:center;
+    background-image:radial-gradient(circle at 50% 0%,rgba(0,229,160,.08),transparent 60%)}
+  .reqs{display:inline-block;text-align:left;margin:24px auto 0;font-size:14px;color:var(--dim)}
+  .reqs li{margin:6px 0;list-style:none}
+  .reqs li::before{content:"✓";color:var(--accent);margin-right:8px;font-weight:bold}
+  footer{padding:40px 0;text-align:center;color:var(--faint);font-size:13px;border-top:1px solid var(--border);margin-top:40px}
+  @media(max-width:800px){
+    .grid{grid-template-columns:1fr}
+    .specs{grid-template-columns:repeat(2,1fr)}
+    .nav-links{display:none}
+    header{padding:50px 0 20px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <div class="brand"><span class="bolt">⚡</span> DLSS 5 Tool</div>
+    <div class="nav-links">
+      <a href="#features">功能</a>
+      <a href="#download">下载</a>
+      <a href="#req">要求</a>
+    </div>
+  </nav>
+  <header>
+    <div class="badge">v2.0 · 暗色重设计</div>
+    <h1>DLSS 5 + 帧生成<br><span class="grad">一键装载工具</span></h1>
+    <p class="sub">为 RTX 20 / 30 系显卡注入 DLSS 5 神经渲染与多帧生成。检测显卡、选游戏、反作弊自检，一键完成。</p>
+    <a class="cta" href="DLSS5_FrameGen_Tool_v2.0.exe" download>
+      <span class="dl">⬇</span> 下载 Windows 版
+    </a>
+    <div class="meta">约 25 MB · Windows 10/11 · 免安装</div>
+    <div class="shot">
+      <img src="assets/app.png" alt="DLSS 5 工具界面预览">
+    </div>
+  </header>
+  <section id="features">
+    <h2 class="sec-title">为什么用它</h2>
+    <p class="sec-sub">三步完成注入，全程可视化日志</p>
+    <div class="grid">
+      <div class="fcard">
+        <div class="ficon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></div>
+        <h3>DLSS 5 神经渲染</h3>
+        <p>通过 OptiScaler 注入，为原生不支持的游戏带来最新神经画质增强。</p>
+      </div>
+      <div class="fcard">
+        <div class="ficon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/></svg></div>
+        <h3>多帧生成 1~6X</h3>
+        <p>RTX 30 系最高 6X 插帧，RTX 20 系实验性 4X，滑块实时调节。</p>
+      </div>
+      <div class="fcard">
+        <div class="ficon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/></svg></div>
+        <h3>反作弊自检</h3>
+        <p>自动检测游戏目录中的反作弊组件，命中即拦截，避免联机封号风险。</p>
+      </div>
+    </div>
+    <div class="specs">
+      <div class="spec"><div class="num">2</div><div class="lab">受支持显卡代</div></div>
+      <div class="spec"><div class="num">6X</div><div class="lab">最高插帧倍率</div></div>
+      <div class="spec"><div class="num">1-click</div><div class="lab">装载 / 还原</div></div>
+      <div class="spec"><div class="num">0</div><div class="lab">需要安装步骤</div></div>
+    </div>
+  </section>
+  <section id="download">
+    <div class="dlband">
+      <h2 class="sec-title">开始使用</h2>
+      <p class="sec-sub">下载后解压，双击运行即可</p>
+      <a class="cta" href="DLSS5_FrameGen_Tool_v2.0.exe" download>
+        <span class="dl">⬇</span> DLSS5_FrameGen_Tool_v2.0.exe
+      </a>
+      <ul class="reqs" id="req">
+        <li>Windows 10 / 11 (64 位)</li>
+        <li>NVIDIA RTX 20 系 或 RTX 30 系显卡</li>
+        <li>最新 NVIDIA 显卡驱动</li>
+        <li>仅支持单人 / 离线游戏（联机反作弊会拦截）</li>
+      </ul>
+    </div>
+  </section>
+  <footer>
+    DLSS 5 Frame Gen Tool · 仅供学习交流 · 不官方、与 NVIDIA 无关
+  </footer>
+</div>
+</body>
+</html>
