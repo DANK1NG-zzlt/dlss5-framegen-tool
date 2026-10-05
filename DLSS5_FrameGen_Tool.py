@@ -101,6 +101,8 @@ class DLSS5FrameGenApp(ctk.CTk):
         self.enable_fg    = ctk.BooleanVar(value=True)
         self.multiplier   = ctk.IntVar(value=4)
         self.auto_scroll  = ctk.BooleanVar(value=True)
+        self.custom_games_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "custom_games.json")
+        self.custom_games = self._load_custom_games()
         self._build_ui()
         self._detect_gpu_async()
         self.log("程序启动完成，正在检测显卡…", "info")
@@ -231,10 +233,13 @@ class DLSS5FrameGenApp(ctk.CTk):
         bar.grid(row=4, column=0, sticky="ew", padx=24, pady=(8, 22))
         left = ctk.CTkFrame(bar, fg_color="transparent")
         left.grid(row=0, column=0, sticky="w")
-        ctk.CTkButton(left, text="🔍  扫描游戏库", width=140, height=44, fg_color=CARD_2,
+        ctk.CTkButton(left, text="🔍  扫描游戏库", width=130, height=44, fg_color=CARD_2,
                       hover_color=CARD_3, border_width=1, border_color=BORDER, font=ctk.CTkFont(size=13),
-                      command=self._scan_library).pack(side="left", padx=(0, 10))
-        ctk.CTkButton(left, text="📁  选择 EXE", width=130, height=44, fg_color=CARD_2,
+                      command=self._scan_library).pack(side="left", padx=(0, 8))
+        ctk.CTkButton(left, text="➕  添加游戏", width=120, height=44, fg_color=CARD_2,
+                      hover_color=CARD_3, border_width=1, border_color=BORDER, font=ctk.CTkFont(size=13),
+                      command=self._add_custom_game).pack(side="left", padx=(0, 8))
+        ctk.CTkButton(left, text="📁  选择 EXE", width=120, height=44, fg_color=CARD_2,
                       hover_color=CARD_3, border_width=1, border_color=BORDER, font=ctk.CTkFont(size=13),
                       command=self._pick_exe).pack(side="left")
         right = ctk.CTkFrame(bar, fg_color="transparent")
@@ -396,9 +401,40 @@ class DLSS5FrameGenApp(ctk.CTk):
                 self.after(0, lambda: self.log(f"已自动选择: {name}", "info"))
                 self.after(0, self._detect_anticheat_async)
             else:
-                self.after(0, lambda: self.log("未找到游戏，请手动选择 EXE。", "warn"))
+                self.after(0, lambda: self.log("未找到游戏，请手动添加或选择 EXE。", "warn"))
             self.after(0, self._refresh_steps)
         threading.Thread(target=worker, daemon=True).start()
+
+    def _load_custom_games(self):
+        try:
+            if os.path.exists(self.custom_games_file):
+                with open(self.custom_games_file, "r", encoding="utf-8") as f:
+                    return json.load(f)
+        except Exception: pass
+        return []
+
+    def _save_custom_games(self):
+        try:
+            with open(self.custom_games_file, "w", encoding="utf-8") as f:
+                json.dump(self.custom_games, f, ensure_ascii=False, indent=2)
+        except Exception: pass
+
+    def _add_custom_game(self):
+        path = filedialog.askopenfilename(title="选择游戏 EXE",
+                                          filetypes=[("可执行文件", "*.exe"), ("所有文件", "*.*")])
+        if not path: return
+        for g in self.custom_games:
+            if g.get("path", "").lower() == path.lower():
+                messagebox.showinfo("已存在", "该游戏已在列表中。"); return
+        default_name = os.path.splitext(os.path.basename(path))[0]
+        entry = {"name": default_name, "path": path}
+        self.custom_games.append(entry)
+        self._save_custom_games()
+        self.log(f"已添加游戏: {default_name}", "success")
+        self.target_exe = path
+        self.game_name = default_name
+        self.card_game.set(default_name, ACCENT)
+        self._detect_anticheat_async()
 
     def _pick_exe(self):
         path = filedialog.askopenfilename(title="选择游戏渲染 EXE",
