@@ -5,9 +5,18 @@ import time
 import os
 import sys
 import shutil
+import json
+import re
 import tempfile
+import subprocess
 import urllib.request
 from datetime import datetime
+
+try:
+    import py7zr
+    HAS_PY7ZR = True
+except ImportError:
+    HAS_PY7ZR = False
 
 OPTISCALER_URL = "https://github.com/optiscaler/OptiScaler/releases/download/v0.9.4/Optiscaler_0.9.4-final.20260718._MM.7z"
 
@@ -119,7 +128,7 @@ class DLSS5FrameGenApp(ctk.CTk):
         self.gpu_badge = ctk.CTkLabel(bar, text="显卡：检测中…", font=ctk.CTkFont(size=11),
                                       text_color=DIM, anchor="w", wraplength=180, justify="left")
         self.gpu_badge.pack(side="bottom", padx=20, pady=(0, 18), anchor="w")
-        ctk.CTkLabel(bar, text="v2.1 · OptiScaler 真实部署", font=ctk.CTkFont(size=10),
+        ctk.CTkLabel(bar, text="v2.1 · 全真实部署", font=ctk.CTkFont(size=10),
                      text_color=FAINT).pack(side="bottom", padx=20, anchor="w")
 
     def _build_main(self):
@@ -139,7 +148,7 @@ class DLSS5FrameGenApp(ctk.CTk):
         bar.grid(row=0, column=0, sticky="ew", padx=28, pady=(24, 8))
         ctk.CTkLabel(bar, text="概览", font=ctk.CTkFont(size=24, weight="bold"),
                      text_color=TEXT).grid(row=0, column=0, sticky="w")
-        ctk.CTkLabel(bar, text="RTX 20 系 (SM75) · RTX 30 系 (SM86) · OptiScaler v0.9.4",
+        ctk.CTkLabel(bar, text="RTX 20/30 系 · OptiScaler v0.9.4 · 真实部署",
                      font=ctk.CTkFont(size=12), text_color=DIM).grid(row=1, column=0, sticky="w")
 
     def _build_stats(self, parent):
@@ -256,9 +265,37 @@ class DLSS5FrameGenApp(ctk.CTk):
         threading.Thread(target=self._detect_gpu_worker, daemon=True).start()
 
     def _detect_gpu_worker(self):
-        time.sleep(0.8)
-        self.gpu_name = "NVIDIA GeForce RTX 3070"
-        self.gpu_type = "SM86"
+        gpu_name = None
+        gpu_type = None
+        try:
+            import wmi
+            c = wmi.WMI()
+            for gpu in c.Win32_VideoController():
+                name = (gpu.Name or "").strip()
+                if not name: continue
+                if re.search(r"RTX\s*20[678]0", name, re.I):
+                    gpu_name = name; gpu_type = "SM75"; break
+                if re.search(r"RTX\s*30[6789]0", name, re.I):
+                    gpu_name = name; gpu_type = "SM86"; break
+                if "RTX" in name.upper() and not gpu_name:
+                    gpu_name = name
+        except Exception:
+            try:
+                out = subprocess.check_output(
+                    ["cmd", "/c", "wmic", "path", "win32_VideoController", "get", "name"],
+                    stderr=subprocess.DEVNULL, timeout=10).decode("gbk", errors="ignore")
+                for line in out.splitlines():
+                    line = line.strip()
+                    if "RTX" in line.upper() and "Name" not in line:
+                        gpu_name = line
+                        if re.search(r"RTX\s*20", line): gpu_type = "SM75"
+                        elif re.search(r"RTX\s*30", line): gpu_type = "SM86"
+                        break
+            except Exception: pass
+        if gpu_name:
+            self.gpu_name = gpu_name; self.gpu_type = gpu_type
+        else:
+            self.gpu_name = "未检测到 RTX 显卡"; self.gpu_type = None
         self.after(0, self._apply_gpu_result)
 
     def _apply_gpu_result(self):
@@ -305,10 +342,62 @@ class DLSS5FrameGenApp(ctk.CTk):
         self.steps[3].set_state("done" if inst else ("active" if gpu and game and ac and not self.anticheat else "pending"))
 
     def _scan_library(self):
-        self.log("开始扫描 Steam / Epic / GOG 游戏库…", "step")
+        self.log("开始扫描 Steam / Epic 游戏库…", "step")
         def worker():
-            time.sleep(1.0)
-            self.after(0, lambda: self.log("扫描完成，找到 3 个候选游戏（演示）。", "success"))
+            candidates = []
+            try:
+                steam_path = None
+                try:
+                    import winreg
+                    key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Valve\Steam")
+                    steam_path, _ = winreg.QueryValueEx(key, "SteamPath")
+                    winreg.CloseKey(key)
+                except Exception: pass
+                if steam_path:
+                    vdf = os.path.join(steam_path, "steamapps", "libraryfolders.vdf")
+                    if os.path.exists(vdf):
+                        with open(vdf, "r", encoding="utf-8", errors="ignore") as f:
+                            content = f.read()
+                        paths = re.findall(r'"path"\s*"([^"]+)"', content)
+                        for p in paths:
+                            p = p.replace("\\\\", "\\")
+                            apps_dir = os.path.join(p, "steamapps", "common")
+                            if os.path.isdir(apps_dir):
+                                for game in os.listdir(apps_dir):
+                                    gd = os.path.join(apps_dir, game)
+                                    if os.path.isdir(gd):
+                                        for item in os.listdir(gd):
+                                            if item.lower().endswith(".exe") and "uninst" not in item.lower() and "redist" not in item.lower():
+                                                candidates.append((game, os.path.join(gd, item))); break
+            except Exception as e:
+                self.after(0, lambda: self.log(f"Steam 扫描异常: {e}", "warn"))
+            try:
+                epic_manifests = os.path.expandvars(r"%ProgramData%\Epic\EpicGamesLauncher\Data\Manifests")
+                if os.path.isdir(epic_manifests):
+                    for mf in os.listdir(epic_manifests):
+                        if mf.endswith(".item"):
+                            try:
+                                with open(os.path.join(epic_manifests, mf), "r", encoding="utf-8") as f:
+                                    data = json.load(f)
+                                name = data.get("DisplayName", "")
+                                install = data.get("InstallLocation", "")
+                                exe = data.get("LaunchExecutable", "")
+                                if name and install and exe:
+                                    full = os.path.join(install, exe)
+                                    if os.path.exists(full):
+                                        candidates.append((name, full))
+                            except Exception: pass
+            except Exception: pass
+            if candidates:
+                self.after(0, lambda: self.log(f"扫描完成，找到 {len(candidates)} 个游戏。", "success"))
+                name, path = candidates[0]
+                self.target_exe = path; self.game_name = name
+                self.after(0, lambda: self.card_game.set(name, ACCENT))
+                self.after(0, lambda: self.log(f"已自动选择: {name}", "info"))
+                self.after(0, self._detect_anticheat_async)
+            else:
+                self.after(0, lambda: self.log("未找到游戏，请手动选择 EXE。", "warn"))
+            self.after(0, self._refresh_steps)
         threading.Thread(target=worker, daemon=True).start()
 
     def _pick_exe(self):
@@ -324,11 +413,31 @@ class DLSS5FrameGenApp(ctk.CTk):
     def _detect_anticheat_async(self):
         def worker():
             self.after(0, lambda: self.card_ac.set("检测中…", DIM))
-            time.sleep(0.6)
-            self.anticheat = []
-            self.ac_checked = True
-            if self.anticheat:
-                names = ", ".join(self.anticheat)
+            time.sleep(0.3)
+            found = []
+            game_dir = os.path.dirname(self.target_exe)
+            ac_patterns = [
+                ("EasyAntiCheat", "EasyAntiCheat"),
+                ("BattlEye", "BattlEye"),
+                ("Riot Vanguard", "vgc.exe"),
+                ("EOS Online", "EOSSDK-Win64-Shipping.exe"),
+                ("PunkBuster", "pbclient"),
+                ("nProtect", "npgg"),
+            ]
+            try:
+                for root, dirs, files in os.walk(game_dir):
+                    depth = root.replace(game_dir, "").count(os.sep)
+                    if depth > 2: dirs[:] = []; continue
+                    for d in dirs:
+                        for label, pat in ac_patterns:
+                            if pat.lower() in d.lower() and label not in found: found.append(label)
+                    for fn in files:
+                        for label, pat in ac_patterns:
+                            if pat.lower() in fn.lower() and label not in found: found.append(label)
+            except Exception: pass
+            self.anticheat = found; self.ac_checked = True
+            if found:
+                names = ", ".join(found)
                 self.after(0, lambda: self.card_ac.set(names, ERROR))
                 self.after(0, lambda: self.log(f"⚠ 检测到反作弊: {names}，禁止安装！", "error"))
                 self.after(0, lambda: self.btn_install.configure(state="disabled"))
@@ -341,17 +450,13 @@ class DLSS5FrameGenApp(ctk.CTk):
 
     def _install(self):
         if not self.target_exe:
-            messagebox.showwarning("未选择游戏", "请先选择一个游戏渲染 EXE。")
-            return
+            messagebox.showwarning("未选择游戏", "请先选择一个游戏渲染 EXE。"); return
         if not self.gpu_type:
-            messagebox.showerror("显卡不支持", "未检测到受支持的 RTX 20/30 系显卡。")
-            return
+            messagebox.showerror("显卡不支持", "未检测到受支持的 RTX 20/30 系显卡。"); return
         if self.anticheat:
-            messagebox.showerror("风险拦截", f"检测到反作弊: {', '.join(self.anticheat)}")
-            return
+            messagebox.showerror("风险拦截", f"检测到反作弊: {', '.join(self.anticheat)}"); return
         if self.gpu_type == "SM75":
-            if not messagebox.askyesno("实验性确认", "RTX 20 系帧生成为实验性功能，可能闪烁、崩溃或掉帧。\n是否继续？"):
-                return
+            if not messagebox.askyesno("实验性确认", "RTX 20 系帧生成为实验性功能，可能闪烁、崩溃或掉帧。\n是否继续？"): return
         self.btn_install.configure(state="disabled", text="⏳  装载中…")
         threading.Thread(target=self._install_worker, daemon=True).start()
 
@@ -370,22 +475,19 @@ class DLSS5FrameGenApp(ctk.CTk):
             self.after(0, lambda: self.log("✓ OptiScaler 下载完成", "success"))
         except Exception as e:
             self.after(0, lambda: self.log(f"✗ 下载失败: {e}", "error"))
-            self.after(0, self._on_install_failed)
-            return
+            self.after(0, self._on_install_failed); return
         time.sleep(0.3)
         self.after(0, lambda: self.log("解压 OptiScaler…", "step"))
         extract_dir = os.path.join(tmp, "extracted")
         os.makedirs(extract_dir, exist_ok=True)
         try:
-            import subprocess
-            seven_zip = self._resource_path("7z.exe")
-            subprocess.run([seven_zip, "x", archive_path, f"-o{extract_dir}", "-y"],
-                           check=True, capture_output=True)
+            if not HAS_PY7ZR: raise RuntimeError("py7zr 未安装，请 pip install py7zr")
+            with py7zr.SevenZipFile(archive_path, mode="r") as z:
+                z.extractall(path=extract_dir)
             self.after(0, lambda: self.log("✓ 解压完成", "success"))
         except Exception as e:
-            self.after(0, lambda: self.log(f"✗ 解压失败（需 7-Zip）: {e}", "error"))
-            self.after(0, self._on_install_failed)
-            return
+            self.after(0, lambda: self.log(f"✗ 解压失败: {e}", "error"))
+            self.after(0, self._on_install_failed); return
         time.sleep(0.3)
         self.after(0, lambda: self.log("备份游戏目录原始文件…", "step"))
         backup_dir = os.path.join(game_dir, ".dlss5_backup")
